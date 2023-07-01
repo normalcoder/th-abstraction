@@ -33,6 +33,7 @@ module Language.Haskell.TH.Datatype.TyVarBndr (
     TyVarBndr_
   , TyVarBndrUnit
   , TyVarBndrSpec
+  , TyVarBndrVis
   , Specificity(..)
 
     -- * Constructing @TyVarBndr@s

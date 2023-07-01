@@ -641,18 +641,26 @@ repairDataFam _ instD = return instD
 -- The @F@ has no type variable binders in its @data family@ declaration, and
 -- it has a return kind of @Type -> Type@. As a result, we pair up @Type@ with
 -- @VarT a@ to get @SigT a (ConT ''Type)@.
-repairVarKindsWith :: [TyVarBndrUnit] -> Maybe Kind -> [Type] -> Q [Type]
+repairVarKindsWith :: [TyVarBndrVis] -> Maybe Kind -> [Type] -> Q [Type]
 repairVarKindsWith tvbs mbKind ts = do
   extra_tvbs <- mkExtraKindBinders $ fromMaybe starK mbKind
   -- This list should be the same length as @ts@. If it isn't, something has
   -- gone terribly wrong.
-  let tvbs' = tvbs ++ extra_tvbs
+  let tvbs' = tvbs ++ (f2ToVis extra_tvbs)
   return $ zipWith stealKindForType tvbs' ts
 
 -- If a VarT is missing an explicit kind signature, steal it from a TyVarBndr.
 stealKindForType :: TyVarBndr_ flag -> Type -> Type
 stealKindForType tvb t@VarT{} = SigT t (tvKind tvb)
 stealKindForType _   t        = t
+
+
+toVis _ = BndrReq
+
+fToVis = fmap toVis
+
+f2ToVis = fmap fToVis
+
 
 -- | Normalize 'Dec' for a newtype or datatype into a 'DatatypeInfo'.
 -- Fail in 'Q' otherwise.
@@ -738,7 +746,7 @@ normalizeDecFor isReified dec =
                                            [] -- No kind variables
 #endif
 
-    normalizeDataD :: Cxt -> Name -> [TyVarBndrUnit] -> Maybe Kind
+    normalizeDataD :: Cxt -> Name -> [TyVarBndrVis] -> Maybe Kind
                    -> [Con] -> DatatypeVariant -> Q DatatypeInfo
     normalizeDataD context name tyvars mbKind cons variant =
       let params = bndrParams tyvars in
@@ -2178,7 +2186,7 @@ dataDCompat ::
   DecQ
 #if MIN_VERSION_template_haskell(2,12,0)
 dataDCompat c n ts cs ds =
-  dataD c n ts Nothing cs
+  dataD c n (f2ToVis ts) Nothing cs
     (if null ds then [] else [derivClause Nothing (map conT ds)])
 #elif MIN_VERSION_template_haskell(2,11,0)
 dataDCompat c n ts cs ds =
@@ -2198,7 +2206,7 @@ newtypeDCompat ::
   DecQ
 #if MIN_VERSION_template_haskell(2,12,0)
 newtypeDCompat c n ts cs ds =
-  newtypeD c n ts Nothing cs
+  newtypeD c n (f2ToVis ts) Nothing cs
     (if null ds then [] else [derivClause Nothing (map conT ds)])
 #elif MIN_VERSION_template_haskell(2,11,0)
 newtypeDCompat c n ts cs ds =
